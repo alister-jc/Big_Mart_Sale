@@ -30,12 +30,12 @@ str(combi)
 
 #Exploratory Data Analysis
 ggplot(train) + geom_histogram(aes(train$Item_Outlet_Sales), 
-                 binwidth = 100, fill = "darkgreen") + xlab("Item Outlet Sales")
+                 binwidth = 100, fill = "darkblue") + xlab("Item Outlet Sales")
 
 #Checking the trend and plotting numeric independent variables in a histogram
-p1 = ggplot(combi) + geom_histogram(aes(Item_Weight), binwidth = 0.5, fill = "blue")
-p2 = ggplot(combi) + geom_histogram(aes(Item_Visibility), binwidth = 0.005, fill = "blue")
-p3 = ggplot(combi) + geom_histogram(aes(Item_MRP), binwidth = 1, fill = "blue" )
+p1 = ggplot(combi) + geom_histogram(aes(Item_Weight), binwidth = 0.5, fill = "green")
+p2 = ggplot(combi) + geom_histogram(aes(Item_Visibility), binwidth = 0.005, fill = "green")
+p3 = ggplot(combi) + geom_histogram(aes(Item_MRP), binwidth = 1, fill = "green" )
 plot_grid(p1, p2, p3, nrow = 1) #plot_grid() from cowplot package
 
 #Checking and plotting the categorical variables
@@ -58,7 +58,7 @@ p4 = ggplot(combi %>% group_by(Item_Type) %>% summarise(Count = n())) +
   theme(axis.text = element_text(angle = 45, hjust = 1))+
   ggtitle("Item_Type")
 
-# plot for Outlet_Identifier
+# Plot for Outlet_Identifier
 p5 = ggplot(combi %>% group_by(Outlet_Identifier) %>% summarise(Count = n())) + 
   geom_bar(aes(Outlet_Identifier, Count), stat = "identity", fill = "coral1") +
   geom_label(aes(Outlet_Identifier, Count, label = Count), vjust = 0.5) +
@@ -85,3 +85,57 @@ p8 = ggplot(combi %>% group_by(Outlet_Type) %>% summarise(Count = n())) +
   theme(axis.text.x = element_text(size = 8.5))
 # ploting both plots together
 plot_grid(p7, p8, ncol = 2)
+
+#Bivariate analysis
+#Scatter plots for continous/numeric variables 
+#Violin plots for categorical variables
+
+train = combi[1:nrow(train)] # extracting train data from the combined data
+
+#Target Variable vs Independent Numerical Variables
+
+# Item_Weight vs Item_Outlet_Sales
+p9 = ggplot(train) + 
+  geom_point(aes(Item_Weight, Item_Outlet_Sales), colour = "violet", alpha = 0.3) +
+  theme(axis.title = element_text(size = 8.5))
+# Item_Visibility vs Item_Outlet_Sales
+p10 = ggplot(train) + 
+  geom_point(aes(Item_Visibility, Item_Outlet_Sales), colour = "violet", alpha = 0.3) +
+  theme(axis.title = element_text(size = 8.5))
+# Item_MRP vs Item_Outlet_Sales
+p11 = ggplot(train) + 
+  geom_point(aes(Item_MRP, Item_Outlet_Sales), colour = "violet", alpha = 0.3) +
+  theme(axis.title = element_text(size = 8.5))
+second_row_2 = plot_grid(p10, p11, ncol = 2)
+plot_grid(p9, second_row_2, nrow = 2)
+
+#Target Variable vs Independent Categorical Variables
+
+# Item_Type vs Item_Outlet_Sales
+p12 = ggplot(train) + 
+  geom_violin(aes(Item_Type, Item_Outlet_Sales), fill = "magenta") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(size = 6),
+        axis.title = element_text(size = 8.5))
+# Item_Fat_Content vs Item_Outlet_Sales
+p13 = ggplot(train) + 
+  geom_violin(aes(Item_Fat_Content, Item_Outlet_Sales), fill = "magenta") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 8.5))
+# Outlet_Identifier vs Item_Outlet_Sales
+p14 = ggplot(train) + 
+  geom_violin(aes(Outlet_Identifier, Item_Outlet_Sales), fill = "magenta") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 8.5))
+second_row_3 = plot_grid(p13, p14, ncol = 2)
+plot_grid(p12, second_row_3, ncol = 1)
+
+#Outlet_Size vs Item_Outlet_Sales
+ggplot(train) + geom_violin(aes(Outlet_Size, Item_Outlet_Sales), fill = "magenta")
+
+#Outlet_Location_Type and Outlet_Type
+p15 = ggplot(train) + geom_violin(aes(Outlet_Location_Type, Item_Outlet_Sales), fill = "brown")
+p16 = ggplot(train) + geom_violin(aes(Outlet_Type, Item_Outlet_Sales), fill = "brown")
+plot_grid(p15, p16, ncol = 1)
