@@ -139,3 +139,59 @@ ggplot(train) + geom_violin(aes(Outlet_Size, Item_Outlet_Sales), fill = "magenta
 p15 = ggplot(train) + geom_violin(aes(Outlet_Location_Type, Item_Outlet_Sales), fill = "brown")
 p16 = ggplot(train) + geom_violin(aes(Outlet_Type, Item_Outlet_Sales), fill = "brown")
 plot_grid(p15, p16, ncol = 1)
+
+# Missing values treatment
+#Find the missing values in item weight
+sum(is.na(combi$Item_Weight))
+
+#Impute missing values with the mean weight
+missing_index = which(is.na(combi$Item_Weight))
+for(i in missing_index){
+  
+  item = combi$Item_Identifier[i] 
+  combi$Item_Weight[i]= mean(combi$Item_Weight[combi$Item_Identifier == item], na.rm = T)
+  
+}
+sum(is.na(combi$Item_Weight))
+
+#Replacing zeros in item visibility variable
+ggplot(combi) + geom_histogram(aes(Item_Visibility), bins = 100) #visual depiction of 0's
+
+zero_index = which(combi$Item_Visibility == 0)
+for(i in zero_index){
+  item = combi$Item_Identifier[i]
+  combi$Item_Visibility[i] = mean(combi$Item_Visibility[combi$Item_Identifier ==item], na.rm = T)
+  
+}
+
+#Using feature engineering to add new variables to the system
+
+#Variable:Item_type_new categorized as perishable/non-perishable
+perishable = c("Breads", "Breakfast", "Dairy", "Fruits and Vegetables", "Meat", "Seafood")
+non_perishable = c("Baking Goods", "Canned", "Frozen Foods", "Hard Drinks", "Health and Hygiene", "Household", "Soft Drinks")
+
+#Creating "Item_Type_new"
+combi[, Item_Type_new := ifelse(Item_Type %in% perishable, "perishable", ifelse(Item_Type %in% non_perishable, "non_perishable", "not_sure"))]
+
+#Categorizing items
+#using item identifier : Drinks, food and non-consummable
+
+table(combi$Item_Type, substr(combi$Item_Identifier, 1, 2))
+
+#Categorizing items in Item_category
+combi[, Item_category := substr(combi$Item_Identifier, 1, 2)]
+
+#Change the "fat content" wherever category is "NC"
+combi$Item_Fat_Content[combi$Item_category == "NC"] = "Non-Edible"
+
+#Calculating the Years of operation of an outlet
+combi[, Outlet_Years := 2018 - combi$Outlet_Establishment_Year]
+combi$Outlet_Establishment_Year = as.factor(combi$Outlet_Establishment_Year)
+
+#Price per unit weight
+combi[, price_per_unit_wt := Item_MRP/Item_Weight]
+
+# creating new independent variable - Item_MRP_clusters
+combi[,item_MRP_clusters := ifelse(Item_MRP < 69, "1st", 
+                                   ifelse(Item_MRP >= 69 & Item_MRP < 136, "2nd",
+                                          ifelse(Item_MRP >= 136 & Item_MRP < 203, "3rd", "4th")))]
