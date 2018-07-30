@@ -195,3 +195,42 @@ combi[, price_per_unit_wt := Item_MRP/Item_Weight]
 combi[,item_MRP_clusters := ifelse(Item_MRP < 69, "1st", 
                                    ifelse(Item_MRP >= 69 & Item_MRP < 136, "2nd",
                                           ifelse(Item_MRP >= 136 & Item_MRP < 203, "3rd", "4th")))]
+str(combi)
+
+#Encoding categorical variables to increase accuracy.
+#Label encoding first
+combi[, Outlet_Size_num := ifelse(Outlet_Size == "Small", 0,
+                                  ifelse(Outlet_Size == "Medium", 1,2))]
+combi[, Outlet_Location_Type_num := ifelse(Outlet_Location_Type == "Tier 3", 0,
+                                           ifelse(Outlet_Location_Type == "Tier 2", 1, 2))]
+#Removing categorical variables after encoding
+combi[, c("Outlet_Size", "Outlet_Location_Type") := NULL]
+
+#One Hot encoding for categorical variables
+ohe = dummyVars("~.", data = combi[, -c("Item_Identifier", "Outlet_Establishment_Year", "Item_Type")], fullRank = T)
+ohe_df = data.table(predict(ohe, combi[, -c("Item_Identifier", "Outlet_Establishment_Year", "Item_Type")]))
+combi = cbind(combi[, "Item_Identifier"], ohe_df)
+
+#Data Pre-processing
+#handling the skewness of the item visibility and price per unit weight
+#Using log transformation
+combi[, Item_Visibility := log(Item_Visibility + 1)] #log +1 to avoid division by zero
+combi[, price_per_unit_wt := log(price_per_unit_wt +1)]
+
+#Scaling the numeric predicators from 0 to 1
+num_vars = which(sapply(combi, is.numeric)) #index of numeric features
+num_vars_name = names(num_vars)
+combi_numeric = combi[, setdiff(num_vars_name, "Item_Outlet_Sales"), with = F]
+prep_num = preProcess(combi_numeric, method = c("center", "scale"))
+combi_numeric_norm = predict(prep_num, combi_numeric)
+combi[, setdiff(num_vars_name, "Item_Outlet_Sales") := NULL] #removing numeric independent variable
+combi = cbind(combi, combi_numeric_norm)
+
+#Splitting the combine data combi back to train and test
+train = combi[1:nrow(train)]
+test = combi[(nrow(train) + 1):nrow(combi)]
+test[, Item_Outlet_Sales := NULL]#Removing item_outlet_sales as it contains 
+
+#Finding the corelated variables
+cor_train = cor(train[,-c("Item_Identifier")])
+corrplot(cor_train, method = "pie", type = "lower", tl.cex = 0.9)
