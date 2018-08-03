@@ -234,3 +234,13 @@ test[, Item_Outlet_Sales := NULL]#Removing item_outlet_sales as it contains
 #Finding the corelated variables
 cor_train = cor(train[,-c("Item_Identifier")])
 corrplot(cor_train, method = "pie", type = "lower", tl.cex = 0.9)
+str(combi)
+str(train)
+
+#Building a linear regression model
+linear_reg_mod = lm(Item_Outlet_Sales ~ ., data = train[, -c("Item_Identifier","Item_Weight","Item_Fat_ContentNon-Edible", "Item_Fat_ContentRegular", "Item_Visibility")])
+
+#Making predictions on test data
+# preparing dataframe for submission and writing it in a csv file
+submission$Item_Outlet_Sales = predict(linear_reg_mod, test[,-c("Item_Identifier")])
+write.csv(submission, "Linear_Reg_submit.csv", row.names = F)
