@@ -7,6 +7,7 @@ library(corrplot)   # used for making correlation plot
 library(xgboost)    # used for building XGBoost model
 library(cowplot)    # used for combining multiple plots 
 library(magrittr)
+
 #Reading in the data
 train = fread("Train_UWu5bXk.csv") 
 test = fread("Test_u94Q5KV.csv")
@@ -207,6 +208,8 @@ combi[, Outlet_Location_Type_num := ifelse(Outlet_Location_Type == "Tier 3", 0,
 combi[, c("Outlet_Size", "Outlet_Location_Type") := NULL]
 
 #One Hot encoding for categorical variables
+install.packages("caret")
+library(caret)
 ohe = dummyVars("~.", data = combi[, -c("Item_Identifier", "Outlet_Establishment_Year", "Item_Type")], fullRank = T)
 ohe_df = data.table(predict(ohe, combi[, -c("Item_Identifier", "Outlet_Establishment_Year", "Item_Type")]))
 combi = cbind(combi[, "Item_Identifier"], ohe_df)
@@ -244,3 +247,75 @@ linear_reg_mod = lm(Item_Outlet_Sales ~ ., data = train[, -c("Item_Identifier","
 # preparing dataframe for submission and writing it in a csv file
 submission$Item_Outlet_Sales = predict(linear_reg_mod, test[,-c("Item_Identifier")])
 write.csv(submission, "Linear_Reg_submit.csv", row.names = F)
+
+#Use Lasso regression
+set.seed(1235)
+my_control = trainControl(method="cv", number=5)
+Grid = expand.grid(alpha = 1, lambda = seq(0.001,0.1,by = 0.0002))
+
+lasso_linear_reg_mod = train(x = train[, -c("Item_Identifier", "Item_Outlet_Sales")], y = train$Item_Outlet_Sales,
+                             method='glmnet', trControl= my_control, tuneGrid = Grid)
+
+submission$Item_Outlet_Sales = predict(lasso_linear_reg_mod, test[,-c("Item_Identifier")])
+write.csv(submission, "Lasso_Linear_reg_submit.csv", row.names = F)
+
+#Random Forest
+set.seed(1237)
+my_control = trainControl(method="cv", number=5) # 5-fold CV
+tgrid = expand.grid(
+  .mtry = c(3:10),
+  .splitrule = "variance",
+  .min.node.size = c(10,15,20)
+)
+rf_mod = train(x = train[, -c("Item_Identifier", "Item_Outlet_Sales")], 
+               y = train$Item_Outlet_Sales,
+               method='ranger', 
+               trControl= my_control, 
+               tuneGrid = tgrid,
+               num.trees = 400,
+               importance = "permutation")
+
+submission$Item_Outlet_Sales = predict(rf_mod, test[,-c("Item_Identifier")])
+write.csv(submission, "Random_Forest_submit.csv", row.names = F)
+
+plot(rf_mod)
+plot(varImp(rf_mod))
+
+#XG Boost Algorithm
+param_list = list(
+  
+  objective = "reg:linear",
+  eta=0.01,
+  gamma = 1,
+  max_depth=6,
+  subsample=0.8,
+  colsample_bytree=0.5
+)
+install.packages("dplyr")
+library(dplyr)
+install.packages("xgboost")
+library(xgboost)
+dtrain = xgb.DMatrix(data = as.matrix(train[,-c("Item_Identifier", "Item_Outlet_Sales")]),
+                     label= train$Item_Outlet_Sales)
+dtest = xgb.DMatrix(data = as.matrix(test[,-c("Item_Identifier")]))
+
+# Cross Validation
+set.seed(112)
+
+xgbcv = xgb.cv(params = param_list, 
+               data = dtrain, 
+               nrounds = 1000, 
+               nfold = 5, 
+               print_every_n = 10, 
+               early_stopping_rounds = 30, 
+               maximize = F)  
+#Running the model/model training
+xgb_model = xgb.train(data = dtrain, params = param_list, nrounds = 430)
+
+#Writing on the submission file
+submission$Item_Outlet_Sales = predict(xgb_model, as.matrix(test[,-c("Item_Identifier")]))
+write.csv(submission, "XGBoost.csv", row.names = F)
+
+var_imp = xgb.importance(feature_names = setdiff(names(train), c("Item_Identifier", "Item_Outlet_Sales")), 
+                         model = xgb_model)
+xgb.plot.importance(var_imp)
